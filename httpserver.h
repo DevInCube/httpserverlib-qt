@@ -15,6 +15,9 @@ struct HttpRequest
     QString http_version;
     QMap<QString, QString> headers;
     QString body;
+    //
+    QMap<QString, QString> params;
+    QMap<QString, QString> query;
 };
 
 struct HttpResponse
@@ -26,15 +29,16 @@ struct HttpResponse
     QString body;
 };
 
+using HttpHandler = std::function<void (HttpRequest & req, HttpResponse & res)>;
+
 class HttpServer : public QObject
 {
    QTcpServer tcp_server;
 
-   using HttpHandler = std::function<void (HttpRequest & req, HttpResponse & res)>;
-
    HttpHandler handler_ = nullptr;
    QMap<QString, HttpHandler> handlers_;
 
+   HttpHandler getHandler(HttpRequest & req);
    HttpResponse handleRequest(HttpRequest & req);
 
    Q_OBJECT
@@ -48,27 +52,20 @@ public:
       handler_ = handler;
    }
 
-   void get(const QString & uri, const HttpHandler & handler)
+   void use(const QString & method, const QString & templ, const HttpHandler & handler)
    {
-       handlers_["GET " + uri] = handler;
+       handlers_[method + " " + templ] = handler;
    }
 
-   void post(const QString & uri, const HttpHandler & handler)
-   {
-       handlers_["POST " + uri] = handler;
-   }
+   void get(const QString & uri, const HttpHandler & handler) { use("GET", uri, handler); }
 
-   void put(const QString & uri, const HttpHandler & handler)
-   {
-       handlers_["PUT " + uri] = handler;
-   }
+   void post(const QString & uri, const HttpHandler & handler) { use("POST", uri, handler); }
 
-   void delete_(const QString & uri, const HttpHandler & handler)
-   {
-       handlers_["DELETE " + uri] = handler;
-   }
+   void put(const QString & uri, const HttpHandler & handler) { use("PUT", uri, handler); }
 
-public slots:
+   void delete_(const QString & uri, const HttpHandler & handler) { use("DELETE", uri, handler); }
+
+private slots:
    void onError(QAbstractSocket::SocketError socketError);
    void onNewConnection();
    void onClientReadyRead();

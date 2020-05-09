@@ -31,14 +31,63 @@ void HttpServer::onNewConnection()
    connect(new_client, &QTcpSocket::disconnected, this, &HttpServer::onClientDisconnected);
 }
 
+#include <QUrlQuery>
+
+QMap<QString, QString> parseUrlQuery(const QString & uri)
+{
+    QMap<QString, QString> query;
+    if (uri.contains('?'))
+    {
+        QUrlQuery url_query{uri.split("?")[1]};
+        QList<QPair<QString, QString>> pairs = url_query.queryItems();
+        for (QPair<QString, QString> & pair: pairs)
+            query[pair.first] = pair.second;
+    }
+    return query;
+}
+
+bool getPathParams(const QString & templ, const QString & path, QMap<QString, QString> & params)
+{
+    QRegExp paramNamesRegExp{":(\\w+)"};
+    QRegExp paramValueRegExp{QString{templ}.replace(paramNamesRegExp, "([^/]+)")};
+    if (!paramValueRegExp.exactMatch(path))
+        return false; // no match
+
+    int pos = 0;
+    int i = 0;
+    while ((pos = paramNamesRegExp.indexIn(templ, pos)) != -1) {
+        QString paramName = paramNamesRegExp.cap(1);
+        QString paramValue = paramValueRegExp.cap(i + 1);
+        params[paramName] = paramValue;
+        //
+        pos += paramNamesRegExp.matchedLength();
+        i += 1;
+    }
+    return true;
+}
+
+HttpHandler HttpServer::getHandler(HttpRequest & req)
+{
+    QString path = req.uri.split("?")[0];
+    HttpHandler handler = nullptr;
+    QMap<QString, HttpHandler>::iterator it;
+    for (it = handlers_.begin(); it != handlers_.end(); ++it)
+    {
+        if (getPathParams(it.key(), req.method + " " + path, req.params))
+        {
+            handler = it.value();
+            break;
+        }
+    }
+    return handler;
+}
+
 HttpResponse HttpServer::handleRequest(HttpRequest & req)
 {
     HttpResponse res;
     res.http_version = "HTTP/1.1";
-    HttpHandler handler = nullptr;
-    if (handlers_.contains(req.method + " " + req.uri))
-        handler = handlers_[req.method + " " + req.uri];
-    else if (handler_ != nullptr)
+    HttpHandler handler = getHandler(req);
+    if (handler == nullptr)
         handler = handler_;
     if (handler == nullptr)
     {
@@ -47,6 +96,7 @@ HttpResponse HttpServer::handleRequest(HttpRequest & req)
     }
     else
     {
+        req.query = parseUrlQuery(req.uri);
         res.status_code = 200;
         res.status_description = "OK";
         res.headers["Content-type"] = "text/html";
