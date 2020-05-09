@@ -44,22 +44,18 @@ static QMap<QString, QString> parseUrlQuery(const QString & uri)
     return query;
 }
 
-static bool getPathParams(const QString & templ, const QString & path, QMap<QString, QString> & params)
+static bool patternMatch(const QString & pattern, const QString & path, QMap<QString, QString> & params)
 {
-    QRegExp paramNamesRegExp{":(\\w+)"};
-    QRegExp paramValueRegExp{QString{templ}.replace(paramNamesRegExp, "([^/]+)")};
-    if (!paramValueRegExp.exactMatch(path))
-        return false; // no match
-
-    int pos = 0;
-    int i = 0;
-    while ((pos = paramNamesRegExp.indexIn(templ, pos)) != -1) {
-        QString paramName = paramNamesRegExp.cap(1);
-        QString paramValue = paramValueRegExp.cap(i + 1);
-        params[paramName] = paramValue;
-        //
-        pos += paramNamesRegExp.matchedLength();
-        i += 1;
+    const QRegExp paramNameRegExp{":\\w+"};
+    QRegExp paramNamesRegExp{QString{pattern}.replace(paramNameRegExp, ":([^/]+)")};
+    QRegExp paramValuesRegExp{QString{pattern}.replace(paramNameRegExp, "([^/]+)")};
+    if (!paramValuesRegExp.exactMatch(path))
+        return false;
+    paramNamesRegExp.exactMatch(pattern);
+    for (int i = 0; i < paramNamesRegExp.captureCount(); i++) {
+       QString paramName = paramNamesRegExp.cap(i + 1);
+       QString paramValue = paramValuesRegExp.cap(i + 1);
+       params[paramName] = paramValue;
     }
     return true;
 }
@@ -71,7 +67,7 @@ HttpHandler HttpServer::getHandler(HttpRequest & req)
     QMap<QString, HttpHandler>::iterator it;
     for (it = handlers_.begin(); it != handlers_.end(); ++it)
     {
-        if (getPathParams(it.key(), req.method + " " + path, req.params))
+        if (patternMatch(it.key(), req.method + " " + path, req.params))
         {
             handler = it.value();
             break;
