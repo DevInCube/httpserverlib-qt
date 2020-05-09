@@ -31,7 +31,7 @@ void HttpServer::onNewConnection()
    connect(new_client, &QTcpSocket::disconnected, this, &HttpServer::onClientDisconnected);
 }
 
-QMap<QString, QString> parseUrlQuery(const QString & uri)
+static QMap<QString, QString> parseUrlQuery(const QString & uri)
 {
     QMap<QString, QString> query;
     if (uri.contains('?'))
@@ -44,7 +44,7 @@ QMap<QString, QString> parseUrlQuery(const QString & uri)
     return query;
 }
 
-bool getPathParams(const QString & templ, const QString & path, QMap<QString, QString> & params)
+static bool getPathParams(const QString & templ, const QString & path, QMap<QString, QString> & params)
 {
     QRegExp paramNamesRegExp{":(\\w+)"};
     QRegExp paramValueRegExp{QString{templ}.replace(paramNamesRegExp, "([^/]+)")};
@@ -104,9 +104,9 @@ HttpResponse HttpServer::handleRequest(HttpRequest & req)
     return res;
 }
 
-HttpRequest parseHttpRequest(const QString & str);
+static HttpRequest parseHttpRequest(const QString & str);
 
-QString formatHttpResponse(const HttpResponse & res);
+static QString formatHttpResponse(const HttpResponse & res);
 
 void HttpServer::onClientReadyRead()
 {
@@ -136,7 +136,7 @@ void HttpServer::onClientDisconnected()
    client->deleteLater();  // use this instead of delete
 }
 
-HttpRequest parseHttpRequest(const QString & str)
+static HttpRequest parseHttpRequest(const QString & str)
 {
     HttpRequest res;
     QString copy = str;
@@ -159,7 +159,7 @@ HttpRequest parseHttpRequest(const QString & str)
     return res;
 }
 
-QString formatHttpResponse(const HttpResponse & res)
+static QString formatHttpResponse(const HttpResponse & res)
 {
     QString str;
     QTextStream ts{&str};
