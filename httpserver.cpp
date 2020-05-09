@@ -1,5 +1,7 @@
 #include "httpserver.h"
+
 #include <QTextStream>
+#include <QUrlQuery>
 
 HttpServer::HttpServer(QObject * parent)
     : QObject(parent)
@@ -15,7 +17,7 @@ bool HttpServer::start(int port)
 
 void HttpServer::onError(QAbstractSocket::SocketError socketError)
 {
-   qDebug() << "tcp server error: " << socketError;
+   qDebug() << "# TCP server error: " << socketError;
 }
 
 void HttpServer::onNewConnection()
@@ -23,15 +25,11 @@ void HttpServer::onNewConnection()
    QObject * sender = this->sender();  // to get sender object pointer
    QTcpServer * server = static_cast<QTcpServer *>(sender);  // downcast
    //
-   qDebug() << "got client new pending connection";
    QTcpSocket * new_client = server->nextPendingConnection();
-   // connect client socket signals
    connect(new_client, &QTcpSocket::readyRead, this, &HttpServer::onClientReadyRead);
    connect(new_client, &QTcpSocket::bytesWritten, this, &HttpServer::onClientDataSent);
    connect(new_client, &QTcpSocket::disconnected, this, &HttpServer::onClientDisconnected);
 }
-
-#include <QUrlQuery>
 
 QMap<QString, QString> parseUrlQuery(const QString & uri)
 {
@@ -102,9 +100,7 @@ HttpResponse HttpServer::handleRequest(HttpRequest & req)
         res.headers["Content-type"] = "text/html";
         handler(req, res);
     }
-    int content_length = res.body.length();
-    if (content_length > 0)
-        res.headers["Content-length"] = QString::number(content_length);
+    res.headers["Content-length"] = QString::number(res.body.length());
     return res;
 }
 
@@ -126,10 +122,9 @@ void HttpServer::onClientReadyRead()
 
 void HttpServer::onClientDataSent()
 {
-    qDebug() << "data sent to client.";
     QObject * sender = this->sender();  // to get sender object pointer
     QTcpSocket * client = static_cast<QTcpSocket *>(sender);  // downcast
-    // close the connection
+    //
     client->close();
 }
 
@@ -138,7 +133,6 @@ void HttpServer::onClientDisconnected()
    QObject * sender = this->sender();  // to get sender object pointer
    QTcpSocket * client = static_cast<QTcpSocket *>(sender);  // downcast
    //
-   qDebug() << "client disconnected";
    client->deleteLater();  // use this instead of delete
 }
 
