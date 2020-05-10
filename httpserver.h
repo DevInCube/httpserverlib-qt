@@ -31,6 +31,8 @@ struct HttpResponse
     QMap<QString, QString> headers;
     QString body;
     //
+    void setStatus(int code, const QString & description = "");
+    //
     void setContentType(const QString & type);
     void setContentLength(int length);
 };

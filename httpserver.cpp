@@ -85,14 +85,12 @@ HttpResponse HttpServer::handleRequest(HttpRequest & req)
         handler = handler_;
     if (handler == nullptr)
     {
-        res.status_code = 404;
-        res.status_description = "Not Found";
+        res.setStatus(404, "Not Found");
     }
     else
     {
         req.query = parseUrlQuery(req.uri);
-        res.status_code = 200;
-        res.status_description = "OK";
+        res.setStatus(200, "OK");
         res.setContentType("text/html");
         handler(req, res);
     }
@@ -197,6 +195,11 @@ int HttpRequest::contentLength() const
     if (!headers.contains(HttpContentLengthHeader))
         return 0;
     return headers[HttpContentLengthHeader].toInt();
+}
+void HttpResponse::setStatus(int code, const QString & description)
+{
+    status_code = code;
+    status_description = description;
 }
 void HttpResponse::setContentType(const QString & type)
 {
