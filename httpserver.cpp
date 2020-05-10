@@ -93,10 +93,10 @@ HttpResponse HttpServer::handleRequest(HttpRequest & req)
         req.query = parseUrlQuery(req.uri);
         res.status_code = 200;
         res.status_description = "OK";
-        res.headers["Content-type"] = "text/html";
+        res.setContentType("text/html");
         handler(req, res);
     }
-    res.headers["Content-length"] = QString::number(res.body.length());
+    res.setContentLength(res.body.length());
     return res;
 }
 
@@ -110,10 +110,20 @@ void HttpServer::onClientReadyRead()
    QTcpSocket * client = static_cast<QTcpSocket *>(sender);  // downcast
    //
    QString received_string = QString::fromUtf8(client->readAll());
-   HttpRequest req = parseHttpRequest(received_string);
-   HttpResponse res = handleRequest(req);
-   client->write(formatHttpResponse(res).toUtf8());
-   client->flush();
+   // check if there was a request header with content length
+   if (current_request.contentLength() == 0)
+       current_request = parseHttpRequest(received_string);
+   else
+       current_request.body = received_string;
+   // check if the request is complete
+   if (current_request.contentLength() == 0
+       || current_request.body.length() > 0)
+   {
+       HttpResponse res = handleRequest(current_request);
+       client->write(formatHttpResponse(res).toUtf8());
+       client->flush();
+       current_request = HttpRequest{};  // clear request
+   }
 }
 
 void HttpServer::onClientDataSent()
@@ -143,7 +153,7 @@ static HttpRequest parseHttpRequest(const QString & str)
     res.method = request_line_parts[0];
     res.uri = request_line_parts[1];
     res.http_version = request_line_parts[2];
-    // Content-type: text/html
+    // Content-Type: text/html
     QString header_line;
     while ((header_line = ts.readLine()).length() > 0)
     {
@@ -161,7 +171,7 @@ static QString formatHttpResponse(const HttpResponse & res)
     QTextStream ts{&str};
     // HTTP/1.1 200 OK
     ts << res.http_version << " " << res.status_code << " " << res.status_description << "\r\n";
-    // Content-type: text/html
+    // Content-Type: text/html
     QMap<QString, QString>::const_iterator it;
     for (it = res.headers.cbegin(); it != res.headers.cend(); ++it)
         ts << it.key() + ": " + it.value() << "\r\n";
@@ -169,4 +179,30 @@ static QString formatHttpResponse(const HttpResponse & res)
     //
     ts << res.body;
     return str;
+}
+
+// http messages
+
+const char * HttpContentTypeHeader = "Content-Type";
+const char * HttpContentLengthHeader = "Content-Length";
+
+QString HttpRequest::contentType() const
+{
+    if (!headers.contains(HttpContentTypeHeader))
+        return "";
+    return headers[HttpContentTypeHeader];
+}
+int HttpRequest::contentLength() const
+{
+    if (!headers.contains(HttpContentLengthHeader))
+        return 0;
+    return headers[HttpContentLengthHeader].toInt();
+}
+void HttpResponse::setContentType(const QString & type)
+{
+    headers[HttpContentTypeHeader] = type;
+}
+void HttpResponse::setContentLength(int length)
+{
+    headers[HttpContentLengthHeader] = QString::number(length);
 }

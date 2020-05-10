@@ -18,6 +18,9 @@ struct HttpRequest
     //
     QMap<QString, QString> params;
     QMap<QString, QString> query;
+    //
+    QString contentType() const;
+    int contentLength() const;
 };
 
 struct HttpResponse
@@ -27,6 +30,9 @@ struct HttpResponse
     QString status_description;
     QMap<QString, QString> headers;
     QString body;
+    //
+    void setContentType(const QString & type);
+    void setContentLength(int length);
 };
 
 using HttpHandler = std::function<void (HttpRequest & req, HttpResponse & res)>;
@@ -34,6 +40,7 @@ using HttpHandler = std::function<void (HttpRequest & req, HttpResponse & res)>;
 class HttpServer : public QObject
 {
    QTcpServer tcp_server;
+   HttpRequest current_request;
 
    HttpHandler handler_ = nullptr;
    QMap<QString, HttpHandler> handlers_;
